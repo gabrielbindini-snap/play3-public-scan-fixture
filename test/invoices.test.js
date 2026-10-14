@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { getInvoice } from '../src/invoices.js';
+import { getInvoice as fixed } from '../src/invoices-fixed.js';
+import { formatAmount } from '../src/format.js';
+const session = { userId: 'user-a', tenantId: 'tenant-a' };
+test('unauthenticated request is rejected', () => assert.equal(getInvoice(null, 'inv-a').status, 401));
+test('own invoice is accessible', () => assert.equal(getInvoice(session, 'inv-a').status, 200));
+test('known defect: cross-tenant invoice is exposed', () => assert.equal(getInvoice(session, 'inv-b').body.tenantId, 'tenant-b'));
+test('correction rejects cross-tenant access', () => assert.deepEqual(fixed(session, 'inv-b'), { status: 404 }));
+test('correction preserves own invoice', () => assert.equal(fixed(session, 'inv-a').status, 200));
+test('correction requires tenant context', () => assert.equal(fixed({userId: 'user-a'}, 'inv-a').status, 401));
+test('unknown invoice remains absent', () => assert.equal(fixed(session, 'missing').status, 404));
+test('format helper validates input', () => { assert.equal(formatAmount(120), '1.20'); assert.throws(() => formatAmount(-1)); });
